@@ -1,4 +1,4 @@
-from fasthtml.common import *
+from fasthtml.common import fast_app, Html, Head, Style, Body, H1, H2, Div, Label, Select, Input, Span, Button, Script, serve
 import json
 from models import get_models
 
