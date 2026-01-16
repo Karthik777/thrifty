@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 from typing import Dict
-import json
-import os
 
 @dataclass
 class ModelSpec:
@@ -13,20 +11,9 @@ class ModelSpec:
     price_output: float  # per 1M tokens
 
 def get_models() -> Dict[str, ModelSpec]:
-    """Get model specifications. Updates from API or local cache."""
-    models_file = "models.json"
-    
-    # Try to load from file, otherwise use defaults
-    if os.path.exists(models_file):
-        try:
-            with open(models_file, 'r') as f:
-                data = json.load(f)
-                return {k: ModelSpec(**v) for k, v in data.items()}
-        except:
-            pass
-    
+    """Get model specifications."""
     # Default models (latest as of 2024-2025)
-    defaults = {
+    return {
         # OpenAI - Latest
         "gpt-5.2": ModelSpec("GPT-5.2", "OpenAI", 400000, 128000, 1.75, 14.00),
         "gpt-5.2-pro": ModelSpec("GPT-5.2 Pro", "OpenAI", 400000, 128000, 21.00, 168.00),
@@ -65,25 +52,3 @@ def get_models() -> Dict[str, ModelSpec]:
         "llama-3-70b": ModelSpec("Llama 3 70B", "Meta", 131072, 4096, 0.65, 0.65),
         "llama-3-8b": ModelSpec("Llama 3 8B", "Meta", 131072, 4096, 0.05, 0.05),
     }
-    
-    # Save defaults to file
-    with open(models_file, 'w') as f:
-        json.dump({k: {
-            "name": v.name,
-            "provider": v.provider,
-            "context_window": v.context_window,
-            "max_output": v.max_output,
-            "price_input": v.price_input,
-            "price_output": v.price_output
-        } for k, v in defaults.items()}, f, indent=2)
-    
-    return defaults
-
-def update_models_from_api():
-    """Fetch latest model specs from APIs. Placeholder for future implementation."""
-    # TODO: Implement API fetching from:
-    # - OpenAI API pricing endpoint
-    # - Anthropic pricing page
-    # - Google Cloud pricing API
-    # - AWS Bedrock pricing API
-    pass
