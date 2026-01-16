@@ -1,11 +1,11 @@
 from fastcore.xml import Html, Head, Style, Body, H1, H2, Div, Label, Select, Input, Span, Button
 from fasthtml.xtend import Script
-from fasthtml.core import serve
-from fasthtml.fastapp import fast_app
+from fasthtml.core import serve, FastHTML
 import json
 from models import get_models
 
-app, rt = fast_app()
+app = FastHTML()
+rt = app.route
 
 @app.get("/")
 def get():
@@ -255,4 +255,4 @@ ${r.model},${r.provider},${r.agents},${r.iterations},${r.inputTokens},${r.output
         )
     )
 
-serve()
+if __name__ == "__main__": serve()
