@@ -12,12 +12,17 @@ def get_common_styles():
     return """
         * { box-sizing: border-box; }
         body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; background: #f5f7fa; }
-        .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 20px 40px; }
-        .header h1 { margin: 0; font-size: 1.8em; }
-        .header p { margin: 5px 0 0 0; opacity: 0.9; font-size: 0.95em; }
-        .nav { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
-        .nav a { color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; background: rgba(255,255,255,0.15); transition: background 0.2s; font-size: 0.9em; }
-        .nav a:hover, .nav a.active { background: rgba(255,255,255,0.3); }
+        .header { background: white; color: #1e293b; padding: 20px 40px; border-bottom: 1px solid #e2e8f0; }
+        .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .header-left { display: flex; align-items: center; gap: 20px; }
+        .header h1 { margin: 0; font-size: 1.5em; font-weight: 600; color: #0f172a; }
+        .header-subtitle { margin: 0; color: #64748b; font-size: 0.85em; font-weight: 400; }
+        .github-star { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: #0f172a; color: white; text-decoration: none; border-radius: 6px; font-size: 0.85em; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .github-star:hover { background: #1e293b; box-shadow: 0 4px 6px rgba(0,0,0,0.15); transform: translateY(-1px); }
+        .github-star svg { width: 16px; height: 16px; fill: currentColor; }
+        .nav { display: flex; gap: 5px; margin-top: 15px; flex-wrap: wrap; }
+        .nav a { color: #64748b; text-decoration: none; padding: 6px 12px; border-radius: 6px; transition: all 0.2s; font-size: 0.85em; font-weight: 500; }
+        .nav a:hover, .nav a.active { color: #0f172a; background: #f1f5f9; }
         .main-content { max-width: 1400px; margin: 0 auto; padding: 30px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
         .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
@@ -68,12 +73,12 @@ def get_common_styles():
         .scenario-card.selected { border-color: #2563eb; background: #eff6ff; }
         .scenario-card h4 { margin: 0 0 5px 0; }
         .scenario-card p { margin: 0; color: #6b7280; font-size: 0.85em; }
-        .tco-summary { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; border-radius: 12px; padding: 24px; margin-bottom: 25px; }
-        .tco-summary h2 { color: white; border-bottom-color: rgba(255,255,255,0.3); }
+        .tco-summary { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 25px; }
+        .tco-summary h2 { color: #0f172a; border-bottom-color: #e2e8f0; }
         .tco-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 15px; }
-        .tco-item { text-align: center; }
-        .tco-item .value { font-size: 1.8em; font-weight: bold; }
-        .tco-item .label { font-size: 0.85em; opacity: 0.9; }
+        .tco-item { text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .tco-item .value { font-size: 1.8em; font-weight: 600; color: #0f172a; }
+        .tco-item .label { font-size: 0.85em; color: #64748b; margin-top: 4px; }
         .section-tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
         .section-tab { padding: 10px 20px; cursor: pointer; border: none; background: none; font-size: 0.95em; color: #64748b; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
         .section-tab:hover { color: #2563eb; }
@@ -140,19 +145,29 @@ def get():
         Body(
             # Header
             Div(
-                H1("Thrifty - AI Platform TCO Calculator"),
-                P(
-                    Span("Pragmatic recommendations for LLM infrastructure with cost optimization"),
-                    Span(" • ", style="opacity: 0.7;"),
-                    Span(id="model-count-badge", style="opacity: 0.8;"),
-                ),
-                Nav(
-                    A("Cost Calculator", href="#calculator", cls="active"),
-                    A("Use Case Templates", href="#use-cases"),
-                    A("Platform Recommendations", href="#platforms"),
-                    A("Model Comparison", href="#comparison"),
-                    A("TCO Planner", href="#tco"),
-                    cls="nav"
+                Div(
+                    Div(
+                        Div(
+                            H1("Thrifty"),
+                            P("AI Platform TCO Calculator", cls="header-subtitle"),
+                            cls="header-left"
+                        ),
+                        Nav(
+                            A("Calculator", href="#calculator", cls="active"),
+                            A("Templates", href="#use-cases"),
+                            A("Platforms", href="#platforms"),
+                            A("Comparison", href="#comparison"),
+                            cls="nav"
+                        ),
+                    ),
+                    A(
+                        """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Zm0 2.445L6.615 5.5a.75.75 0 0 1-.564.41l-3.097.45 2.24 2.184a.75.75 0 0 1 .216.664l-.528 3.084 2.769-1.456a.75.75 0 0 1 .698 0l2.77 1.456-.53-3.084a.75.75 0 0 1 .216-.664l2.24-2.183-3.096-.45a.75.75 0 0 1-.564-.41L8 2.694Z"/></svg>""",
+                        Span("Star on GitHub"),
+                        href="https://github.com/Karthik777/thrifty",
+                        target="_blank",
+                        cls="github-star"
+                    ),
+                    cls="header-content"
                 ),
                 cls="header"
             ),
