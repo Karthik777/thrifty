@@ -66,6 +66,17 @@ def get_common_styles():
         .comparison-table th, .comparison-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
         .comparison-table th { background: #f8fafc; font-weight: 600; color: #374151; }
         .comparison-table tr:hover { background: #f8fafc; }
+        .comparison-cards { display: none; }
+        .comparison-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+        .comparison-card.current { border: 2px solid #2563eb; background: #eff6ff; }
+        .comparison-card.cheapest { background: #f0fdf4; }
+        .comparison-card-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; }
+        .comparison-card-title { font-weight: 600; color: #1e293b; font-size: 0.95em; }
+        .comparison-card-rank { color: #6b7280; font-size: 0.85em; }
+        .comparison-card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .comparison-card-item { }
+        .comparison-card-label { font-size: 0.75em; color: #6b7280; margin-bottom: 2px; }
+        .comparison-card-value { font-weight: 500; color: #1e293b; font-size: 0.9em; }
         .delta-positive { color: #059669; font-weight: 500; }
         .delta-negative { color: #dc2626; font-weight: 500; }
         .scenario-card { border: 2px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
@@ -95,6 +106,8 @@ def get_common_styles():
             .github-star { width: 100%; justify-content: center; }
             .nav { margin-top: 10px; gap: 8px; }
             .nav a { flex: 1 1 auto; text-align: center; }
+            .comparison-table { display: none; }
+            .comparison-cards { display: block; }
         }
     """
 
@@ -917,6 +930,102 @@ def get():
                     }
                     
                     html += '</tbody></table>';
+                    
+                    // Generate mobile cards view
+                    let cardsHtml = '<div class="comparison-cards">';
+                    
+                    topModels.forEach((m, i) => {
+                        const rank = i + 1;
+                        const isCurrentRow = m.isCurrent;
+                        const cardClass = isCurrentRow ? 'current' : (rank === 1 ? 'cheapest' : '');
+                        
+                        const diffFromCurrent = currentModelCost ? (m.monthlyCost - currentModelCost.monthlyCost) : 0;
+                        const diffClass = diffFromCurrent < 0 ? 'delta-positive' : (diffFromCurrent > 0 ? 'delta-negative' : '');
+                        const diffSign = diffFromCurrent > 0 ? '+' : '';
+                        const diffText = isCurrentRow ? '—' : `${diffSign}$${diffFromCurrent.toFixed(2)}`;
+                        
+                        cardsHtml += `
+                            <div class="comparison-card ${cardClass}">
+                                <div class="comparison-card-header">
+                                    <div>
+                                        <div class="comparison-card-title">${m.name}</div>
+                                        <div style="margin-top: 4px;">
+                                            ${rank === 1 ? '<span class="tag tag-green">Cheapest</span>' : ''}
+                                            ${isCurrentRow ? '<span class="tag tag-blue">Current</span>' : ''}
+                                        </div>
+                                    </div>
+                                    <div class="comparison-card-rank">#${rank}</div>
+                                </div>
+                                <div class="comparison-card-grid">
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">Provider</div>
+                                        <div class="comparison-card-value">${m.provider}</div>
+                                    </div>
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">Context</div>
+                                        <div class="comparison-card-value">${(m.contextWindow / 1000).toFixed(0)}K</div>
+                                    </div>
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">$/Request</div>
+                                        <div class="comparison-card-value">$${m.costPerRequest.toFixed(4)}</div>
+                                    </div>
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">$/Month</div>
+                                        <div class="comparison-card-value">$${m.monthlyCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                    </div>
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">vs Current</div>
+                                        <div class="comparison-card-value ${diffClass}">${diffText}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    // Show current model card if not in top 10
+                    if (showCurrentSeparately && currentModelCost) {
+                        cardsHtml += `
+                            <div style="text-align: center; color: #6b7280; font-size: 0.85em; padding: 10px;">
+                                ... ${currentRank - 11} models ...
+                            </div>
+                            <div class="comparison-card current">
+                                <div class="comparison-card-header">
+                                    <div>
+                                        <div class="comparison-card-title">${currentModelCost.name}</div>
+                                        <div style="margin-top: 4px;">
+                                            <span class="tag tag-blue">Current</span>
+                                        </div>
+                                    </div>
+                                    <div class="comparison-card-rank">#${currentRank}</div>
+                                </div>
+                                <div class="comparison-card-grid">
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">Provider</div>
+                                        <div class="comparison-card-value">${currentModelCost.provider}</div>
+                                    </div>
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">Context</div>
+                                        <div class="comparison-card-value">${(currentModelCost.contextWindow / 1000).toFixed(0)}K</div>
+                                    </div>
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">$/Request</div>
+                                        <div class="comparison-card-value">$${currentModelCost.costPerRequest.toFixed(4)}</div>
+                                    </div>
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">$/Month</div>
+                                        <div class="comparison-card-value">$${currentModelCost.monthlyCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                    </div>
+                                    <div class="comparison-card-item">
+                                        <div class="comparison-card-label">vs Current</div>
+                                        <div class="comparison-card-value">—</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    cardsHtml += '</div>';
+                    html += cardsHtml;
                     html += `<p style="font-size: 0.8em; color: #6b7280; margin-top: 10px;">Showing top 10 of ${modelCosts.length} models. Costs based on your configuration: ${inputTokens} input × ${outputTokens} output tokens, ${monthlyRequests.toLocaleString()} requests/month.</p>`;
                     
                     document.getElementById('model-comparison-table').innerHTML = html;
