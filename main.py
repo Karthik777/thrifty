@@ -150,7 +150,8 @@ def serialize_use_cases(use_cases):
         "typical_output_tokens": v.typical_output_tokens,
         "requests_per_user_day": v.requests_per_user_day,
         "model_tier": v.model_tier,
-        "complexity": v.complexity.value
+        "complexity": v.complexity.value,
+        "cache_hit_rate": v.cache_hit_rate
     } for k, v in use_cases.items()}
 
 @app.get("/")
@@ -308,6 +309,23 @@ def get():
                             Span("For multi-step agents, enter average iterations", cls="info-text"),
                             cls="form-group"
                         ),
+                        Div(
+                            Label("Expected Cache Hit Rate (%)"),
+                            Input(type="range", id="cache-hit-rate", value="0", min="0", max="100", step="5", oninput="updateCacheDisplay(); recalculateAll()", style="width: 100%;"),
+                            Div(
+                                Span(id="cache-display", style="font-weight: 500; color: #2563eb;"),
+                                Span(" of input tokens served from cache", style="color: #64748b; font-size: 0.85em;"),
+                                style="margin: 8px 0;"
+                            ),
+                            Div(
+                                Button("Conservative (20%)", cls="btn btn-secondary", style="padding: 6px 12px; font-size: 0.8em; margin-right: 5px;", onclick="setCacheHitRate(20)"),
+                                Button("Optimized RAG (65%)", cls="btn btn-secondary", style="padding: 6px 12px; font-size: 0.8em; margin-right: 5px;", onclick="setCacheHitRate(65)"),
+                                Button("High Cache (85%)", cls="btn btn-secondary", style="padding: 6px 12px; font-size: 0.8em;", onclick="setCacheHitRate(85)"),
+                                style="margin-top: 8px;"
+                            ),
+                            Span("⚠️ Real hit rates vary — measure from provider logs (Anthropic cache_read tokens, OpenAI prompt_tokens_details). Poor prompt structure = near 0%. Optimized RAG/agents = 60-90%.", cls="info-text", style="display: block; margin-top: 8px; font-size: 0.8em; color: #d97706;"),
+                            cls="form-group"
+                        ),
 
                         cls="card"
                     ),
@@ -432,6 +450,9 @@ def get():
                         document.getElementById('model-info').textContent = 'No models loaded - check API connection';
                     }
                     
+                    // Initialize cache display
+                    updateCacheDisplay();
+                    
                     updateModels();
                     renderUseCaseTemplates();
                     updateRecommendations();
@@ -494,6 +515,7 @@ def get():
                                 <span class="tag tag-purple">${uc.requests_per_user_day} req/user/day</span>
                                 <span class="tag tag-orange">${uc.complexity} complexity</span>
                                 <span class="tag tag-green">${tierLabels[uc.model_tier] || uc.model_tier} tier</span>
+                                <span class="tag tag-green">~${Math.round(uc.cache_hit_rate * 100)}% cache hit</span>
                             </div>
                             <div style="margin-top: 8px; font-size: 0.85em; color: #64748b;">
                                 <strong>Suggested models:</strong> ${recommendedModels.slice(0, 5).map(m => m.name).join(', ')}
@@ -506,6 +528,11 @@ def get():
                     document.getElementById('output-tokens').value = uc.typical_output_tokens;
                     document.getElementById('requests-per-user').value = uc.requests_per_user_day;
                     document.getElementById('complexity-select').value = uc.complexity;
+                    
+                    // Set cache hit rate from use case
+                    const cacheHitPercent = Math.round(uc.cache_hit_rate * 100);
+                    document.getElementById('cache-hit-rate').value = cacheHitPercent;
+                    updateCacheDisplay();
                     
                     // Select the best recommended model
                     if (recommendedModels.length > 0) {
@@ -627,22 +654,35 @@ def get():
                     const dailyUsers = parseInt(document.getElementById('daily-users').value) || 0;
                     const requestsPerUser = parseFloat(document.getElementById('requests-per-user').value) || 0;
                     const iterations = parseInt(document.getElementById('iterations').value) || 1;
+                    const cacheHitRate = parseFloat(document.getElementById('cache-hit-rate').value) / 100 || 0;
                     
                     // Get complexity multiplier (accounts for retries, tool calls, etc.)
                     const complexityMultiplier = getComplexityMultiplier();
                     // Get scale discount (volume pricing)
                     const scaleDiscount = getScaleDiscount();
+                    // Get cache discount based on provider
+                    const cacheDiscount = getCacheDiscount(model.provider);
                     
                     // Calculate per request cost (complexity adds overhead)
                     const effectiveIterations = iterations * complexityMultiplier;
-                    const inputCost = (inputTokens * effectiveIterations / 1000000) * model.price_input * scaleDiscount;
+                    
+                    // Calculate input cost with cache discount
+                    // Effective input cost = full_price × (1 - hit_rate) + (cached_price × hit_rate)
+                    const fullInputCost = (inputTokens * effectiveIterations / 1000000) * model.price_input * scaleDiscount;
+                    const cachedInputCost = fullInputCost * cacheDiscount;
+                    const inputCost = fullInputCost * (1 - cacheHitRate) + cachedInputCost * cacheHitRate;
+                    
                     const outputCost = (outputTokens * effectiveIterations / 1000000) * model.price_output * scaleDiscount;
                     const costPerRequest = inputCost + outputCost;
+                    
+                    // Calculate savings from cache
+                    const cacheSavings = fullInputCost - inputCost;
                     
                     // Calculate monthly cost
                     const dailyRequests = dailyUsers * requestsPerUser;
                     const monthlyRequests = dailyRequests * 30;
                     const monthlyCost = costPerRequest * monthlyRequests;
+                    const monthlyCacheSavings = cacheSavings * monthlyRequests;
                     
                     // Get platform costs
                     const platformCost = calculatePlatformCosts();
@@ -669,6 +709,11 @@ def get():
                         <div class="breakdown-item"><span>Complexity</span><span>${complexity} (${complexityMultiplier}x overhead)</span></div>
                         <div class="breakdown-item"><span>Scale Discount</span><span>${scale} (${Math.round((1 - scaleDiscount) * 100)}% off)</span></div>
                         <div class="breakdown-item"><span>Effective Iterations</span><span>${effectiveIterations.toFixed(1)} (${iterations} × ${complexityMultiplier})</span></div>
+                        ${cacheHitRate > 0 ? `
+                        <div class="breakdown-item" style="background: #f0fdf4;"><span>Cache Hit Rate</span><span>${(cacheHitRate * 100).toFixed(0)}% (${model.provider} ~${Math.round((1 - cacheDiscount) * 100)}% off cached)</span></div>
+                        <div class="breakdown-item" style="background: #f0fdf4;"><span>Cache Savings/Req</span><span style="color: #059669;">-$${cacheSavings.toFixed(6)}</span></div>
+                        <div class="breakdown-item" style="background: #f0fdf4;"><span>Cache Savings/Month</span><span style="color: #059669;">-$${monthlyCacheSavings.toFixed(2)}</span></div>
+                        ` : ''}
                         <div class="breakdown-item"><span>Input Cost/Req</span><span>$${inputCost.toFixed(6)}</span></div>
                         <div class="breakdown-item"><span>Output Cost/Req</span><span>$${outputCost.toFixed(6)}</span></div>
                         <div class="breakdown-item"><span>Tokens/Request</span><span>${(inputTokens + outputTokens).toLocaleString()}</span></div>
@@ -695,6 +740,30 @@ def get():
                 function recalculateAll() {
                     calculate();
                     generateModelComparison();
+                }
+                
+                function getCacheDiscount(provider) {
+                    // Provider-specific cache pricing discounts
+                    // Returns the multiplier for cached tokens (e.g., 0.1 means 90% off)
+                    const providerLower = provider.toLowerCase();
+                    if (providerLower.includes('anthropic')) {
+                        return 0.10; // ~90% off for Anthropic cached reads
+                    } else if (providerLower.includes('openai')) {
+                        return 0.25; // ~75% off for OpenAI (0.25x price)
+                    } else {
+                        return 0.25; // Default to 75% off for other providers
+                    }
+                }
+                
+                function updateCacheDisplay() {
+                    const cacheHitRate = document.getElementById('cache-hit-rate').value;
+                    document.getElementById('cache-display').textContent = cacheHitRate + '%';
+                }
+                
+                function setCacheHitRate(rate) {
+                    document.getElementById('cache-hit-rate').value = rate;
+                    updateCacheDisplay();
+                    recalculateAll();
                 }
                 
                 function calculatePlatformCosts() {
@@ -798,6 +867,7 @@ def get():
                     const dailyUsers = parseInt(document.getElementById('daily-users').value) || 100;
                     const requestsPerUser = parseFloat(document.getElementById('requests-per-user').value) || 10;
                     const iterations = parseInt(document.getElementById('iterations').value) || 1;
+                    const cacheHitRate = parseFloat(document.getElementById('cache-hit-rate').value) / 100 || 0;
                     const currentModelId = document.getElementById('model-select').value;
                     
                     const complexityMultiplier = getComplexityMultiplier();
@@ -809,7 +879,13 @@ def get():
                     let currentModelCost = null;
                     
                     Object.entries(models).forEach(([id, m]) => {
-                        const inputCost = (inputTokens * effectiveIterations / 1000000) * m.price_input * scaleDiscount;
+                        const cacheDiscount = getCacheDiscount(m.provider);
+                        
+                        // Calculate input cost with cache discount
+                        const fullInputCost = (inputTokens * effectiveIterations / 1000000) * m.price_input * scaleDiscount;
+                        const cachedInputCost = fullInputCost * cacheDiscount;
+                        const inputCost = fullInputCost * (1 - cacheHitRate) + cachedInputCost * cacheHitRate;
+                        
                         const outputCost = (outputTokens * effectiveIterations / 1000000) * m.price_output * scaleDiscount;
                         const costPerRequest = inputCost + outputCost;
                         const monthlyCost = costPerRequest * monthlyRequests;
