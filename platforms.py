@@ -451,6 +451,7 @@ class UseCaseTemplate:
     requests_per_user_day: float
     model_tier: str  # "budget", "balanced", "premium" - for dynamic model matching
     complexity: ComplexityLevel
+    cache_hit_rate: float  # Expected cache hit rate as decimal (0.0-1.0) - % of input tokens served from cache
 
 USE_CASE_TEMPLATES = {
     "chatbot_simple": UseCaseTemplate(
@@ -460,7 +461,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=200,
         requests_per_user_day=10,
         model_tier="budget",
-        complexity=ComplexityLevel.LOW
+        complexity=ComplexityLevel.LOW,
+        cache_hit_rate=0.175  # 17.5% - low complexity, short/unique user messages, some system prompt reuse
     ),
     "chatbot_advanced": UseCaseTemplate(
         name="Advanced Chatbot",
@@ -469,7 +471,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=800,
         requests_per_user_day=15,
         model_tier="balanced",
-        complexity=ComplexityLevel.MEDIUM
+        complexity=ComplexityLevel.MEDIUM,
+        cache_hit_rate=0.30  # 30% - medium complexity, conversation history + system prompt partial hits
     ),
     "rag_basic": UseCaseTemplate(
         name="Basic RAG",
@@ -478,7 +481,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=500,
         requests_per_user_day=20,
         model_tier="budget",
-        complexity=ComplexityLevel.MEDIUM
+        complexity=ComplexityLevel.MEDIUM,
+        cache_hit_rate=0.50  # 50% - instructions/tools at front, retrieved docs at end, solid prefix hits
     ),
     "rag_advanced": UseCaseTemplate(
         name="Advanced RAG",
@@ -487,7 +491,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=1500,
         requests_per_user_day=10,
         model_tier="balanced",
-        complexity=ComplexityLevel.HIGH
+        complexity=ComplexityLevel.HIGH,
+        cache_hit_rate=0.725  # 72.5% - large/frequent context, document-heavy, high effective hit rates
     ),
     "code_generation": UseCaseTemplate(
         name="Code Generation",
@@ -496,7 +501,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=1000,
         requests_per_user_day=50,
         model_tier="balanced",
-        complexity=ComplexityLevel.MEDIUM
+        complexity=ComplexityLevel.MEDIUM,
+        cache_hit_rate=0.425  # 42.5% - tool definitions + system prompt cache well, code snippets vary
     ),
     "code_review": UseCaseTemplate(
         name="Code Review Agent",
@@ -505,7 +511,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=2000,
         requests_per_user_day=5,
         model_tier="premium",
-        complexity=ComplexityLevel.HIGH
+        complexity=ComplexityLevel.HIGH,
+        cache_hit_rate=0.425  # 42.5% - tool definitions + context, but code varies
     ),
     "summarization": UseCaseTemplate(
         name="Document Summarization",
@@ -514,7 +521,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=500,
         requests_per_user_day=5,
         model_tier="budget",
-        complexity=ComplexityLevel.LOW
+        complexity=ComplexityLevel.LOW,
+        cache_hit_rate=0.80  # 80% - long static docs, classic strong caching case
     ),
     "agent_workflow": UseCaseTemplate(
         name="Multi-Step Agent",
@@ -523,7 +531,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=1500,
         requests_per_user_day=8,
         model_tier="balanced",
-        complexity=ComplexityLevel.HIGH
+        complexity=ComplexityLevel.HIGH,
+        cache_hit_rate=0.65  # 65% - tool defs + system + previous steps cache well across chain
     ),
     "data_extraction": UseCaseTemplate(
         name="Data Extraction",
@@ -532,7 +541,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=300,
         requests_per_user_day=100,
         model_tier="budget",
-        complexity=ComplexityLevel.LOW
+        complexity=ComplexityLevel.LOW,
+        cache_hit_rate=0.80  # 80% - long static docs being parsed, similar to summarization
     ),
     "content_generation": UseCaseTemplate(
         name="Content Generation",
@@ -541,7 +551,8 @@ USE_CASE_TEMPLATES = {
         typical_output_tokens=2000,
         requests_per_user_day=10,
         model_tier="balanced",
-        complexity=ComplexityLevel.MEDIUM
+        complexity=ComplexityLevel.MEDIUM,
+        cache_hit_rate=0.25  # 25% - templates/system + style guides cache, but creative output varies
     ),
 }
 
